@@ -10,7 +10,9 @@ import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import io.graphenee.core.model.BeanFault;
 import io.graphenee.core.model.api.GxDataService;
+import io.graphenee.core.model.bean.GxNamespaceBean;
 import io.graphenee.core.model.bean.GxSupportedLocaleBean;
 import io.graphenee.core.model.bean.GxTermBean;
 import io.graphenee.flow.GxMasterDetailView.FormConfigurator.FormPosition;
@@ -39,10 +41,14 @@ public class MasterDetailView extends GxMasterDetailView<GxTermBean> {
 		gc.propertyCaption("termKey", "Key");
 		gc.propertyCaption("termSingular", "Singular");
 		gc.propertyCaption("termPlural", "Plural");
+		gc.onDelete(entities -> {
+			service.delete(entities);
+		});
 	}
 
 	@Override
 	protected void configure(FormConfigurator<GxTermBean> fc) {
+		//		AbstractLayoutC
 		fc.position(FormPosition.POPUP);
 		fc.caption("Term Detail");
 		fc.editable("termKey", "termSingular", "termPlural", "supportedLocaleFault");
@@ -56,6 +62,7 @@ public class MasterDetailView extends GxMasterDetailView<GxTermBean> {
 
 		fc.saveCaption("OK");
 		fc.onSave(entity -> {
+			entity.setNamespaceFault(new BeanFault<Integer, GxNamespaceBean>(service.findSystemNamespace().getOid(), service.findSystemNamespace()));
 			service.save(entity);
 		});
 	}

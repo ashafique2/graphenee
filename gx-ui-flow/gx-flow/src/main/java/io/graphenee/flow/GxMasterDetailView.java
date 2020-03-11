@@ -5,19 +5,25 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
 import com.vaadin.flow.component.AbstractField;
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.dependency.CssImport;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.Grid.Column;
+import com.vaadin.flow.component.grid.Grid.SelectionMode;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
@@ -32,6 +38,7 @@ import com.vaadin.flow.router.AfterNavigationEvent;
 import com.vaadin.flow.router.AfterNavigationObserver;
 
 import io.graphenee.core.callback.TRParamCallback;
+import io.graphenee.core.callback.TRReturnCallback;
 import io.graphenee.flow.GxMasterDetailView.FormConfigurator.FormPosition;
 
 @CssImport("styles/master-detail-view.css")
@@ -42,6 +49,12 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 	private Grid<T> mainGrid;
 	private GridConfigurator<T> gc;
 	private FormConfigurator<T> fc;
+
+	private HorizontalLayout toolbar;
+
+	private Button addButton;
+	private Button editButton;
+	private Button deleteButton;
 
 	private Button cancel = new Button("Cancel");
 	private Button save = new Button("Save");
@@ -57,10 +70,63 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		configure(gc);
 		configure(fc);
 
+		addButton = new Button("New", VaadinIcon.PLUS.create());
+		addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+		addButton.addClickListener(event -> {
+			try {
+				if (gc.addButtonClick != null) {
+					setEntity(gc.addButtonClick.execute());
+				} else {
+					setEntity(entityClass.newInstance());
+				}
+			} catch (Exception e) {
+			}
+		});
+
+		editButton = new Button("Modify", VaadinIcon.EDIT.create());
+		editButton.setEnabled(false);
+		editButton.addClickListener(event -> {
+			try {
+
+			} catch (Exception e) {
+			}
+		});
+
+		deleteButton = new Button("Remove", VaadinIcon.CLOSE_SMALL.create());
+		deleteButton.setClassName("remove-button");
+		deleteButton.setEnabled(false);
+		deleteButton.addClickListener(event -> {
+			try {
+				Collection<T> issues = mainGrid.getSelectedItems();
+				if (issues.size() > 0) {
+					if (gc.shouldShowDeleteConfirmation()) {
+
+					} else {
+						for (Iterator<T> itemIterator = issues.iterator(); itemIterator.hasNext();) {
+							T item = itemIterator.next();
+							//							if(gc.onDelete(item)) {
+							//								
+							//							}
+						}
+						mainGrid.deselectAll();
+						mainGrid.getDataProvider().refreshAll();
+					}
+				}
+			} catch (Exception e) {
+			}
+		});
+
+		toolbar = buildToolbar();
+
+		if (toolbar.getComponentCount() == 0) {
+			toolbar.setVisible(false);
+		}
+
 		// Configure Grid
 		mainGrid = new Grid<>(entityClass);
 		mainGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
 		mainGrid.setHeightFull();
+		mainGrid.setSelectionMode(gc.getSelectionMode());
 
 		// Show visible properties only
 		String[] props = gc.getVisibleProperties();
@@ -85,14 +151,20 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		Component gridComponent = createGridComponent();
 		Component formComponent = createFormComponent();
 
+		VerticalLayout rootLayout = new VerticalLayout();
+		rootLayout.setSizeFull();
+
+		rootLayout.add(toolbar);
+
 		if (fc.getPosition() == FormPosition.POPUP) {
-			VerticalLayout layout = new VerticalLayout();
-			layout.setSizeFull();
-			layout.add(gridComponent);
-			add(layout);
-			mainGrid.asSingleSelect().addValueChangeListener(event -> {
-				setEntity(event.getValue());
-			});
+			Dialog dialog = new Dialog();
+			dialog.add(formComponent);
+			rootLayout.add(dialog);
+			if (gc.getSelectionMode().equals(SelectionMode.SINGLE)) {
+				singleSelectValueChangeListener();
+			} else if (gc.getSelectionMode().equals(SelectionMode.MULTI)) {
+				multiSelectValueChangeListener();
+			}
 		} else {
 			SplitLayout splitLayout = new SplitLayout();
 			splitLayout.setSizeFull();
@@ -103,10 +175,56 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 				splitLayout.addToPrimary(gridComponent);
 				splitLayout.addToSecondary(formComponent);
 			}
-			add(splitLayout);
-			mainGrid.asSingleSelect().addValueChangeListener(event -> setEntity(event.getValue()));
+			rootLayout.add(splitLayout);
+			if (gc.getSelectionMode().equals(SelectionMode.SINGLE)) {
+				singleSelectValueChangeListener();
+			} else if (gc.getSelectionMode().equals(SelectionMode.MULTI)) {
+				multiSelectValueChangeListener();
+			}
+
 		}
 
+		add(rootLayout);
+
+	}
+
+	private void singleSelectValueChangeListener() {
+		mainGrid.asSingleSelect().addValueChangeListener(event -> {
+			if (event.getValue() == null) {
+				deleteButton.setEnabled(false);
+				editButton.setEnabled(false);
+			} else {
+				setEntity(event.getValue());
+				deleteButton.setEnabled(true);
+				editButton.setEnabled(true);
+			}
+			toggleDeleteButtonState();
+		});
+	}
+
+	private void toggleDeleteButtonState() {
+		if (deleteButton.isEnabled())
+			deleteButton.removeClassName("remove-button-disable");
+		else
+			deleteButton.addClassName("remove-button-disable");
+	}
+
+	private void multiSelectValueChangeListener() {
+		mainGrid.asMultiSelect().addValueChangeListener(event -> {
+			if (event.getValue().size() > 1) {
+				deleteButton.setEnabled(true);
+				editButton.setEnabled(false);
+			} else if (event.getValue().size() == 1) {
+				setEntity(event.getValue().iterator().next());
+				editButton.setEnabled(true);
+				deleteButton.setEnabled(true);
+			} else {
+				setEntity(null);
+				deleteButton.setEnabled(false);
+				editButton.setEnabled(false);
+			}
+			toggleDeleteButtonState();
+		});
 	}
 
 	private Component createFormComponent() {
@@ -181,6 +299,27 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		}
 	}
 
+	private HorizontalLayout buildToolbar() {
+		HorizontalLayout layout = new HorizontalLayout();
+		layout.setWidthFull();
+		layout.setSpacing(true);
+		layout.setMargin(false);
+		layout.setAlignItems(Alignment.START);
+
+		layout.add(addButton, editButton, deleteButton);
+
+		if (addButton != null)
+			addButton.setVisible(gc.isAddButtonVisible());
+
+		if (editButton != null)
+			editButton.setVisible(gc.isEditButtonVisible());
+
+		if (deleteButton != null)
+			deleteButton.setVisible(gc.isDeleteButtonVisible());
+
+		return layout;
+	}
+
 	private void createButtonLayout(Div editorDiv) {
 		HorizontalLayout buttonLayout = new HorizontalLayout();
 		buttonLayout.setClassName("button-layout");
@@ -194,7 +333,10 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		editorDiv.add(buttonLayout);
 
 		cancel.addClickListener(e -> {
-			mainGrid.asSingleSelect().clear();
+			if (gc.getSelectionMode().equals(SelectionMode.SINGLE))
+				mainGrid.asSingleSelect().clear();
+			else
+				mainGrid.asMultiSelect().clear();
 			try {
 				if (fc.onCancel != null) {
 					fc.onCancel.execute(bean);
@@ -204,12 +346,14 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		});
 
 		save.addClickListener(e -> {
-			binder.writeBeanIfValid(bean);
+			if (bean != null)
+				binder.writeBeanIfValid(bean);
 			try {
 				if (fc.onSave != null) {
 					fc.onSave.execute(bean);
 				}
 				mainGrid.getDataProvider().refreshItem(bean);
+				refresh();
 			} catch (Exception ex) {
 			}
 		});
@@ -258,14 +402,34 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 	protected void configure(FormConfigurator<T> fc) {
 	}
 
+	public GxMasterDetailView<T> refresh() {
+		UI.getCurrent().access(() -> {
+			mainGrid.deselectAll();
+			Collection<T> entities = fetchEntities();
+			mainGrid.setItems(entities);
+			UI.getCurrent().push();
+		});
+		return this;
+	}
+
 	public static class GridConfigurator<T> {
 		private String caption;
 		private String[] visibleProperties;
 		private String[] editableProperties;
 		private Component defaultComponent;
+		private SelectionMode selectionMode = SelectionMode.MULTI;
 		private FormConfigurator<T> formConfigurator;
 		private Map<String, PropertyConfigurator> propertyConfiguratorMap = new HashMap<>();
 		private Class<T> entityClass;
+		private TRReturnCallback<T> addButtonClick;
+		private Boolean addButtonVisible = true;
+		private Boolean editButtonVisible = true;
+		private Boolean deleteButtonVisible = true;
+		private Boolean addButtonEnable = true;
+		private Boolean editButtonEnable = false;
+		private Boolean deleteButtonEnable = false;
+		private Boolean deleteConfirmation = false;
+		private TRParamCallback<T> onDelete;
 
 		public GridConfigurator(Class<T> entityClass) {
 			this.entityClass = entityClass;
@@ -273,6 +437,15 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 
 		public Class<T> getEntityClass() {
 			return entityClass;
+		}
+
+		public GridConfigurator<T> selectionMode(SelectionMode selectionMode) {
+			this.selectionMode = selectionMode;
+			return this;
+		}
+
+		public SelectionMode getSelectionMode() {
+			return selectionMode;
 		}
 
 		public GridConfigurator<T> caption(String caption) {
@@ -360,6 +533,78 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 			return propertyConfiguratorMap.get(propertyName);
 		}
 
+		public GridConfigurator<T> onAddButtonClick(TRReturnCallback<T> onAddButtonClick) {
+			this.addButtonClick = onAddButtonClick;
+			return this;
+		}
+
+		public GridConfigurator<T> addButtonVisible(Boolean visible) {
+			this.addButtonVisible = visible;
+			return this;
+		}
+
+		public Boolean isAddButtonVisible() {
+			return addButtonVisible;
+		}
+
+		public GridConfigurator<T> addButtonEnable(Boolean enable) {
+			this.addButtonEnable = enable;
+			return this;
+		}
+
+		public Boolean isAddButtonEnable() {
+			return addButtonEnable;
+		}
+
+		public GridConfigurator<T> editButtonEnable(Boolean enable) {
+			this.editButtonEnable = enable;
+			return this;
+		}
+
+		public Boolean isEditButtonEnable() {
+			return editButtonEnable;
+		}
+
+		public GridConfigurator<T> editButtonVisible(Boolean visible) {
+			this.editButtonVisible = visible;
+			return this;
+		}
+
+		public Boolean isEditButtonVisible() {
+			return editButtonVisible;
+		}
+
+		public GridConfigurator<T> deleteButtonVisible(Boolean visible) {
+			this.deleteButtonVisible = visible;
+			return this;
+		}
+
+		public Boolean isDeleteButtonVisible() {
+			return deleteButtonVisible;
+		}
+
+		public GridConfigurator<T> deleteButtonEnable(Boolean enable) {
+			this.deleteButtonEnable = enable;
+			return this;
+		}
+
+		public Boolean isDeleteButtonEnable() {
+			return deleteButtonEnable;
+		}
+
+		public GridConfigurator<T> deleteConfirmation(Boolean deleteConfirmation) {
+			this.deleteConfirmation = deleteConfirmation;
+			return this;
+		}
+
+		public Boolean shouldShowDeleteConfirmation() {
+			return deleteConfirmation;
+		}
+
+		public GridConfigurator<T> onDelete(TRParamCallback<T> onDelete) {
+			this.onDelete = onDelete;
+			return this;
+		}
 	}
 
 	public static class FormConfigurator<T> {
