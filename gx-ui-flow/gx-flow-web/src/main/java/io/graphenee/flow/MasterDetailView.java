@@ -53,10 +53,6 @@ public class MasterDetailView extends GxMasterDetailView<GxTermBean> {
 		fc.caption("Term Detail");
 		fc.editable("termKey", "termSingular", "termPlural", "supportedLocaleFault");
 		fc.required("supportedLocaleFault", "termKey", "termSingular");
-		fc.propertyCaption("supportedLocaleFault", "Locale");
-		fc.propertyCaption("termKey", "Key");
-		fc.propertyCaption("termSingular", "Singular");
-		fc.propertyCaption("termPlural", "Plural");
 		supportedLocaleFault = new ComboBox<GxSupportedLocaleBean>();
 		fc.propertyConfigurator("supportedLocaleFault").component(supportedLocaleFault).converter(new BeanFaultToBeanConverter());
 

@@ -8,6 +8,9 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.vaadin.flow.component.AbstractField;
 import com.vaadin.flow.component.Component;
@@ -22,6 +25,7 @@ import com.vaadin.flow.component.grid.Grid.Column;
 import com.vaadin.flow.component.grid.Grid.SelectionMode;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.H5;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -230,6 +234,8 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 	private Component createFormComponent() {
 		Div editorDiv = new Div();
 		editorDiv.setClassName("editor-layout");
+		H5 heading = new H5(fc.getCaption());
+		editorDiv.add(heading);
 		GxFormLayout form = GxFormLayout.builder().expandFields(true).build();
 		editorDiv.add(form);
 		binder = new Binder<>(gc.getEntityClass());
@@ -413,7 +419,7 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 	}
 
 	public static class GridConfigurator<T> {
-		private String caption;
+		private Supplier<String> captionProvider;
 		private String[] visibleProperties;
 		private String[] editableProperties;
 		private Component defaultComponent;
@@ -449,12 +455,16 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		}
 
 		public GridConfigurator<T> caption(String caption) {
-			this.caption = caption;
-			return this;
+			return captionProvider(() -> caption);
 		}
 
 		public String getCaption() {
-			return caption;
+			return captionProvider != null ? captionProvider.get() : null;
+		}
+
+		public GridConfigurator<T> captionProvider(Supplier<String> captionProvider) {
+			this.captionProvider = captionProvider;
+			return this;
 		}
 
 		public GridConfigurator<T> visible(String... propertyName) {
@@ -514,7 +524,7 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 			if (formConfigurator == null) {
 				synchronized (this) {
 					if (formConfigurator == null) {
-						formConfigurator = new FormConfigurator<>();
+						formConfigurator = new FormConfigurator<>(getEntityClass());
 					}
 				}
 			}
@@ -615,9 +625,9 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 			POPUP
 		}
 
-		private String caption;
+		private Class<T> entityClass;
+		private Supplier<String> captionProvider;
 		private String[] editableProperties;
-		private String[] requiredProperties;
 		private Component defaultComponent;
 		private String saveCaption;
 		private String cancelCaption;
@@ -625,6 +635,10 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		private TRParamCallback<T> onCancel;
 		private FormPosition position = FormPosition.END;
 		Map<String, PropertyConfigurator> propertyConfiguratorMap = new HashMap<>();
+
+		public FormConfigurator(Class<T> entityClass) {
+			this.entityClass = entityClass;
+		}
 
 		public PropertyConfigurator propertyConfigurator(String propertyName) {
 			if (!propertyConfiguratorMap.containsKey(propertyName)) {
@@ -639,12 +653,16 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		}
 
 		public FormConfigurator<T> caption(String caption) {
-			this.caption = caption;
-			return this;
+			return captionProvider(() -> caption);
 		}
 
 		public String getCaption() {
-			return this.caption;
+			return captionProvider != null ? captionProvider.get() : null;
+		}
+
+		public FormConfigurator<T> captionProvider(Supplier<String> captionProvider) {
+			this.captionProvider = captionProvider;
+			return this;
 		}
 
 		public FormConfigurator<T> defaultComponent(Component component) {
@@ -666,15 +684,23 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		}
 
 		public FormConfigurator<T> required(String... propertyName) {
-			this.requiredProperties = propertyName;
-			for (String required : requiredProperties) {
+			for (String editable : editableProperties) {
+				propertyConfigurator(editable).required(false);
+			}
+			for (String required : propertyName) {
 				propertyConfigurator(required).required(true);
 			}
 			return this;
 		}
 
-		public String[] getRequiredProperties() {
-			return requiredProperties != null ? requiredProperties : new String[] {};
+		public FormConfigurator<T> optional(String... propertyName) {
+			for (String editable : editableProperties) {
+				propertyConfigurator(editable).required(true);
+			}
+			for (String required : propertyName) {
+				propertyConfigurator(required).required(false);
+			}
+			return this;
 		}
 
 		public FormConfigurator<T> propertyComponent(String propertyName, Component component) {
@@ -735,12 +761,16 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 			return this.position;
 		}
 
+		public Class<T> getEntityClass() {
+			return this.entityClass;
+		}
+
 	}
 
 	public static class PropertyConfigurator {
 		private String propertyName;
-		private String caption;
-		private boolean required = false;
+		private Supplier<String> captionProvider;
+		private boolean required = true;
 		private boolean visible = true;
 		private Component component;
 		private Converter converter;
@@ -755,12 +785,16 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		}
 
 		public PropertyConfigurator caption(String caption) {
-			this.caption = caption;
-			return this;
+			return captionProvider(() -> caption);
 		}
 
 		public String getCaption() {
-			return this.caption;
+			return captionProvider != null ? captionProvider.get() : StringUtils.capitalize(StringUtils.join(StringUtils.splitByCharacterTypeCamelCase(propertyName), " "));
+		}
+
+		public PropertyConfigurator captionProvider(Supplier<String> captionProvider) {
+			this.captionProvider = captionProvider;
+			return this;
 		}
 
 		public PropertyConfigurator required(Boolean required) {
