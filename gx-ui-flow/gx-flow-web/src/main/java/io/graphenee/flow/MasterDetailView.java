@@ -48,7 +48,7 @@ public class MasterDetailView extends GxMasterDetailView<GxTermBean> {
 
 	@Override
 	protected void configure(FormConfigurator<GxTermBean> fc) {
-		//		AbstractLayoutC
+		//		AbstractLayoutCs
 		fc.position(FormPosition.POPUP);
 		fc.caption("Term Detail");
 		fc.editable("termKey", "termSingular", "termPlural", "supportedLocaleFault");

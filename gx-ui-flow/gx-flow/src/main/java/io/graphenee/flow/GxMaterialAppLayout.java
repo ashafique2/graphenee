@@ -5,7 +5,6 @@ import java.util.Collection;
 
 import com.github.appreciated.app.layout.addons.notification.DefaultNotificationHolder;
 import com.github.appreciated.app.layout.addons.notification.component.NotificationButton;
-import com.github.appreciated.app.layout.addons.notification.entity.DefaultNotification;
 import com.github.appreciated.app.layout.component.appbar.AppBarBuilder;
 import com.github.appreciated.app.layout.component.applayout.LeftLayouts;
 import com.github.appreciated.app.layout.component.builder.AppLayoutBuilder;
@@ -36,9 +35,9 @@ public abstract class GxMaterialAppLayout extends AppLayoutRouterLayout<LeftLayo
 		notifications = new DefaultNotificationHolder(newStatus -> {
 		});
 		badge = new DefaultBadgeHolder(5);
-		for (int i = 1; i < 6; i++) {
-			notifications.add(new DefaultNotification("Test title" + i, "A rather long test description ..............." + i));
-		}
+		//		for (int i = 1; i < 6; i++) {
+		//			notifications.add(new DefaultNotification("Test title" + i, "A rather long test description ..............." + i));
+		//		}
 
 		init(AppLayoutBuilder.get(LeftLayouts.LeftResponsiveHybrid.class).withTitle(createAppBarTitle()).withAppBar(createAppBar()).withAppMenu(createAppMenu()).build());
 	}

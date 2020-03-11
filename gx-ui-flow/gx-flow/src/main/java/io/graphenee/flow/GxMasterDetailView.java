@@ -59,7 +59,7 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 	private Button addButton;
 	private Button editButton;
 	private Button deleteButton;
-
+	Dialog popupForm = new Dialog();
 	private Button cancel = new Button("Cancel");
 	private Button save = new Button("Save");
 
@@ -82,6 +82,8 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 					setEntity(gc.addButtonClick.execute());
 				} else {
 					setEntity(entityClass.newInstance());
+					if (fc.getPosition() == FormPosition.POPUP)
+						popupForm.open();
 				}
 			} catch (Exception e) {
 			}
@@ -91,7 +93,8 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		editButton.setEnabled(false);
 		editButton.addClickListener(event -> {
 			try {
-
+				if (fc.getPosition() == FormPosition.POPUP)
+					popupForm.open();
 			} catch (Exception e) {
 			}
 		});
@@ -128,8 +131,8 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 
 		// Configure Grid
 		mainGrid = new Grid<>(entityClass);
+		mainGrid.setSizeFull();
 		mainGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
-		mainGrid.setHeightFull();
 		mainGrid.setSelectionMode(gc.getSelectionMode());
 
 		// Show visible properties only
@@ -156,20 +159,21 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		Component formComponent = createFormComponent();
 
 		VerticalLayout rootLayout = new VerticalLayout();
-		rootLayout.setSizeFull();
+		rootLayout.setHeightFull();
 
 		rootLayout.add(toolbar);
 
 		if (fc.getPosition() == FormPosition.POPUP) {
-			Dialog dialog = new Dialog();
-			dialog.add(formComponent);
-			rootLayout.add(dialog);
-			if (gc.getSelectionMode().equals(SelectionMode.SINGLE)) {
-				singleSelectValueChangeListener();
-			} else if (gc.getSelectionMode().equals(SelectionMode.MULTI)) {
-				multiSelectValueChangeListener();
-			}
+			//			popupForm.add(new Label(fc.getCaption()));
+			popupForm.add(formComponent);
+			popupForm.setSizeFull();
+			gridComponent.getChildren().forEach(c -> System.err.println(c));
+			//			rootLayout.add(gridComponent);
+			rootLayout.add(gridComponent);
+
 		} else {
+			addButton.setVisible(false);
+			editButton.setVisible(false);
 			SplitLayout splitLayout = new SplitLayout();
 			splitLayout.setSizeFull();
 			if (fc.getPosition() == FormPosition.START) {
@@ -180,14 +184,13 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 				splitLayout.addToSecondary(formComponent);
 			}
 			rootLayout.add(splitLayout);
-			if (gc.getSelectionMode().equals(SelectionMode.SINGLE)) {
-				singleSelectValueChangeListener();
-			} else if (gc.getSelectionMode().equals(SelectionMode.MULTI)) {
-				multiSelectValueChangeListener();
-			}
-
 		}
-
+		if (gc.getSelectionMode().equals(SelectionMode.SINGLE)) {
+			singleSelectValueChangeListener();
+		} else if (gc.getSelectionMode().equals(SelectionMode.MULTI)) {
+			multiSelectValueChangeListener();
+		}
+		setHeightFull();
 		add(rootLayout);
 
 	}
@@ -216,6 +219,7 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 	private void multiSelectValueChangeListener() {
 		mainGrid.asMultiSelect().addValueChangeListener(event -> {
 			if (event.getValue().size() > 1) {
+				setEntity(null);
 				deleteButton.setEnabled(true);
 				editButton.setEnabled(false);
 			} else if (event.getValue().size() == 1) {
@@ -236,7 +240,8 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		editorDiv.setClassName("editor-layout");
 		H5 heading = new H5(fc.getCaption());
 		editorDiv.add(heading);
-		GxFormLayout form = GxFormLayout.builder().expandFields(true).build();
+
+		GxFormLayout form = new GxFormLayout(true);
 		editorDiv.add(form);
 		binder = new Binder<>(gc.getEntityClass());
 		for (String prop : fc.getEditableProperties()) {
@@ -339,6 +344,8 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 		editorDiv.add(buttonLayout);
 
 		cancel.addClickListener(e -> {
+			if (fc.getPosition().equals(FormPosition.POPUP))
+				popupForm.close();
 			if (gc.getSelectionMode().equals(SelectionMode.SINGLE))
 				mainGrid.asSingleSelect().clear();
 			else
@@ -359,6 +366,8 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 					fc.onSave.execute(bean);
 				}
 				mainGrid.getDataProvider().refreshItem(bean);
+				if (fc.getPosition().equals(FormPosition.POPUP))
+					popupForm.close();
 				refresh();
 			} catch (Exception ex) {
 			}
@@ -368,8 +377,10 @@ public abstract class GxMasterDetailView<T> extends Div implements AfterNavigati
 	private Component createGridComponent() {
 		Div wrapper = new Div();
 		wrapper.setClassName("wrapper");
-		wrapper.setWidthFull();
 		wrapper.add(mainGrid);
+		wrapper.setHeightFull();
+		wrapper.setSizeFull();
+		//		wrapper.setClassName("flex");
 		return wrapper;
 	}
 

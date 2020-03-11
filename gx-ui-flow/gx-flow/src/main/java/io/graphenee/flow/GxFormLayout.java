@@ -6,9 +6,11 @@ import java.util.Set;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.formlayout.FormLayout;
 
-import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
-@Builder
+@Getter
+@Setter
 public class GxFormLayout extends FormLayout {
 
 	private static final long serialVersionUID = 1L;
@@ -29,6 +31,11 @@ public class GxFormLayout extends FormLayout {
 		for (Component field : fieldSet) {
 			field.getElement().getClassList().add(className);
 		}
+	}
+
+	public GxFormLayout(boolean expandFields) {
+		super();
+		this.expandFields = expandFields;
 	}
 
 }

@@ -69,7 +69,7 @@ public abstract class GxFormView<T> extends Div implements AfterNavigationObserv
 		H5 heading = new H5(fc.getCaption());
 		wrapper.add(heading);
 
-		GxFormLayout form = GxFormLayout.builder().expandFields(true).build();
+		GxFormLayout form = new GxFormLayout(true);
 		wrapper.add(form);
 		binder = new Binder<>(fc.getEntityClass());
 		for (String prop : fc.getEditableProperties()) {
